@@ -12,7 +12,8 @@ import 'package:collection/collection.dart';
 enum HistoryView { day, week, month }
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final Function()? onDataUpdated;
+  const HistoryScreen({super.key, this.onDataUpdated});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -208,7 +209,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
 
     if (result == true) {
-      loadTrips(); // Refresh list after edit
+      widget.onDataUpdated?.call();
     }
   }
 
@@ -434,7 +435,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       },
       onDismissed: (_) async {
          await _databaseService.deleteTrip(trip.id);
-         loadTrips(); 
+         widget.onDataUpdated?.call();
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

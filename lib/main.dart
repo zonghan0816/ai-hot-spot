@@ -150,9 +150,15 @@ class _MainScreenState extends State<MainScreen> {
     _widgetOptions = <Widget>[
       HomeScreen(key: _homeScreenKey),
       StatsScreen(key: _statsScreenKey),
-      HistoryScreen(key: _historyScreenKey),
+      HistoryScreen(key: _historyScreenKey, onDataUpdated: _refreshAllPages),
       const SettingsScreen(),
     ];
+  }
+  
+  void _refreshAllPages() {
+    _homeScreenKey.currentState?.loadInitialData();
+    _statsScreenKey.currentState?.loadStats();
+    (_historyScreenKey.currentState as dynamic)?.loadTrips();
   }
 
   static const List<String> _pageTitles = ['首頁', '統計資料', '歷史行程', '設定'];
@@ -174,9 +180,7 @@ class _MainScreenState extends State<MainScreen> {
     );
 
     if (result == true || result == 'TRIP_SAVED') {
-      _homeScreenKey.currentState?.loadInitialData();
-      _statsScreenKey.currentState?.loadStats();
-      (_historyScreenKey.currentState as dynamic)?.loadTrips();
+      _refreshAllPages();
       if (result == 'TRIP_SAVED') {
         _homeScreenKey.currentState?.suggestNearestHotspotAfterTrip();
       }

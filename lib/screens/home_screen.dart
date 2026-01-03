@@ -5,7 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:taxibook/models/fee_item.dart';
 import 'package:taxibook/models/fleet.dart';
 import 'package:taxibook/models/recommended_hotspot.dart';
 import 'package:taxibook/providers/subscription_provider.dart';
@@ -13,7 +12,6 @@ import 'package:taxibook/services/ad_service.dart';
 import 'package:taxibook/services/database_service.dart';
 import 'package:taxibook/services/prediction_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:uuid/uuid.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,7 +35,6 @@ class HomeScreenState extends State<HomeScreen> {
   Timer? _workTimer;
   double _todayRevenue = 0.0;
   double _hourlyRate = 0.0;
-  bool _isLocating = false;
   Timer? _idleTimer;
   Timer? _secondReminderTimer;
   DateTime? _lastActivityTime;
@@ -199,7 +196,7 @@ class HomeScreenState extends State<HomeScreen> {
     _predictionError = null;
 
     try {
-        final position = await Geolocator.getCurrentPosition();
+        final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
 
         if (!isAutoTrigger && !subProvider.isSubscribed) {
             await subProvider.useAiPrediction();
@@ -207,7 +204,7 @@ class HomeScreenState extends State<HomeScreen> {
 
         List<RecommendedHotspot> allHotspots = [];
         final personalHotspots = await _databaseService.getFeeItems();
-        final cloudHotspots = await _predictionService.getRecommendedHotspots();
+        final cloudHotspots = await _predictionService.getRecommendedHotspots(latitude: position.latitude, longitude: position.longitude);
 
         // Add personal hotspots
         for (var item in personalHotspots) {
@@ -445,9 +442,8 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> fetchAndStoreLocation() async {
-    setState(() => _isLocating = true);
     try {
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('last_known_lat', position.latitude);
       await prefs.setDouble('last_known_lng', position.longitude);
@@ -462,8 +458,6 @@ class HomeScreenState extends State<HomeScreen> {
           SnackBar(content: Text('無法取得位置: ${e.toString()}'), backgroundColor: Colors.red),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isLocating = false);
     }
   }
 

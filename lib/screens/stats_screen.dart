@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:taxibook/models/trip.dart';
-import 'package:taxibook/screens/ai_hotspot_screen.dart';
 import 'package:taxibook/services/database_service.dart';
 
 // --- Modern Dashboard Refactor by Gemini ---
