@@ -34,7 +34,7 @@ class AuthService {
       return userCredential.user;
     } catch (e) {
       // Errors are handled by the UI layer, no need to print here.
-      return null;
+      rethrow;
     }
   }
 

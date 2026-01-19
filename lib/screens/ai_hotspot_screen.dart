@@ -72,7 +72,9 @@ class _AiHotspotScreenState extends State<AiHotspotScreen> {
 
   Future<void> _fetchHotspots() async {
     _cancelIdleTimer(); // Cancel timer when a refresh starts
-    final future = _predictionService.getRecommendedHotspots();
+    
+    final future = _fetchAllHotspots();
+    
     setState(() {
       _hotspotsFuture = future;
     });
@@ -88,6 +90,19 @@ class _AiHotspotScreenState extends State<AiHotspotScreen> {
         );
       }
     }
+  }
+  
+  Future<List<RecommendedHotspot>> _fetchAllHotspots() async {
+    final universalFuture = _predictionService.getUniversalHotspots();
+    final cloudFuture = _predictionService.getCloudHotspots();
+    
+    final results = await Future.wait([universalFuture, cloudFuture]);
+    
+    final allHotspots = <RecommendedHotspot>[];
+    allHotspots.addAll(results[0]);
+    allHotspots.addAll(results[1]);
+    
+    return allHotspots;
   }
 
   Future<void> _launchMap(double latitude, double longitude) async {

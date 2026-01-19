@@ -12,6 +12,7 @@ import 'package:taxibook/providers/theme_provider.dart';
 import 'package:taxibook/services/auth_service.dart';
 import 'package:taxibook/services/cloud_backup_service.dart';
 import 'package:taxibook/services/database_service.dart';
+import 'package:taxibook/services/log_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'fleet_management_screen.dart';
 
@@ -136,7 +137,52 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
   void _updateGoalText(TextEditingController controller, double value) { final textValue = value.toStringAsFixed(0); if (controller.text != textValue) { controller.text = textValue; } }
   Future<void> _saveGoals() async { final daily = _dailyGoalController.text; final weekly = _weeklyGoalController.text; final monthly = _monthlyGoalController.text; await _saveGoalsToDB(daily, weekly, monthly); }
   Future<void> _saveGoalsToDB(String daily, String weekly, String monthly) async { await _databaseService.setSetting('dailyGoal', daily); await _databaseService.setSetting('weeklyGoal', weekly); await _databaseService.setSetting('monthlyGoal', monthly); }
-  Future<void> _sendFeedbackEmail() async { const String recipientEmail = 'your.email@example.com'; final packageInfo = await PackageInfo.fromPlatform(); final appName = packageInfo.appName; final appVersion = packageInfo.version; final buildNumber = packageInfo.buildNumber; String? device, osVersion; final deviceInfo = DeviceInfoPlugin(); if (Platform.isAndroid) { final androidInfo = await deviceInfo.androidInfo; device = "${androidInfo.manufacturer} ${androidInfo.model}"; osVersion = "Android ${androidInfo.version.release}"; } else if (Platform.isIOS) { final iosInfo = await deviceInfo.iosInfo; device = iosInfo.name; osVersion = "${iosInfo.systemName} ${iosInfo.systemVersion}"; } final String subject = Uri.encodeComponent('$appName 問題回報 ($appVersion)'); final String body = Uri.encodeComponent('''\n\n\n--- 請在此線上說明您的問題 ---\n\n\n\n\n--- 自動附加資訊，請勿刪除 ---\nApp 版本: $appVersion ($buildNumber)\n設備: $device\n作業系統: $osVersion\n'''); final Uri mailtoUri = Uri.parse('mailto:$recipientEmail?subject=$subject&body=$body'); if (await canLaunchUrl(mailtoUri)) { await launchUrl(mailtoUri); } else { if (mounted) { ScaffoldMessenger.of(context).showSnackBar( const SnackBar(content: Text('無法開啟郵件應用程式，請確認手機上是否已安裝。')), ); } } }
+  Future<void> _sendFeedbackEmail() async {
+    // TODO: Replace with your actual feedback email address before production
+    const String recipientEmail = 'zonghan0816@gmail.com';
+    final packageInfo = await PackageInfo.fromPlatform();
+    final appName = packageInfo.appName;
+    final appVersion = packageInfo.version;
+    final buildNumber = packageInfo.buildNumber;
+    String? device, osVersion;
+    final deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      final androidInfo = await deviceInfo.androidInfo;
+      device = "${androidInfo.manufacturer} ${androidInfo.model}";
+      osVersion = "Android ${androidInfo.version.release}";
+    } else if (Platform.isIOS) {
+      final iosInfo = await deviceInfo.iosInfo;
+      device = iosInfo.name;
+      osVersion = "${iosInfo.systemName} ${iosInfo.systemVersion}";
+    }
+
+    final logs = await LogService().getLogs();
+
+    final String subject = Uri.encodeComponent('$appName 問題回報 ($appVersion)');
+    final String body = Uri.encodeComponent('''
+\n\n
+--- 請在此線上說明您的問題 ---
+\n\n\n\n
+--- 自動附加資訊，請勿刪除 ---
+App 版本: $appVersion ($buildNumber)
+設備: $device
+作業系統: $osVersion
+
+--- 應用程式日誌 ---
+
+$logs
+''');
+    final Uri mailtoUri = Uri.parse('mailto:$recipientEmail?subject=$subject&body=$body');
+    if (await canLaunchUrl(mailtoUri)) {
+      await launchUrl(mailtoUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法開啟郵件應用程式，請確認手機上是否已安裝。')),
+        );
+      }
+    }
+  }
   void _performBackup(CloudBackupService backupService, AuthProvider authProvider) async { if (authProvider.status != AuthStatus.authenticated) { _showLoginPrompt(context); return; } await _saveGoals(); setState(() => _isSyncing = true); final status = await backupService.backupDatabase(); setState(() => _isSyncing = false); if (!mounted) return; final message = switch (status) { CloudBackupStatus.success => '資料備份成功！', CloudBackupStatus.error => '備份失敗，請稍後再試。', _ => '發生未知錯誤。', }; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message))); }
   void _confirmAndRestore(CloudBackupService backupService, AuthProvider authProvider) { if (authProvider.status != AuthStatus.authenticated) { _showLoginPrompt(context); return; } showDialog( context: context, builder: (dialogContext) => AlertDialog( title: const Text('警告'), content: const Text('還原資料將覆寫本機所有紀錄，確定要繼續嗎？'), actions: [ TextButton(child: const Text('取消'), onPressed: () => Navigator.of(dialogContext).pop()), TextButton( child: Text('還原', style: TextStyle(color: Theme.of(context).colorScheme.error)), onPressed: () { Navigator.of(dialogContext).pop(); _performRestore(backupService); }, ), ], ), ); }
   void _performRestore(CloudBackupService backupService) async { setState(() => _isSyncing = true); final status = await backupService.restoreDatabase(); setState(() => _isSyncing = false); if (!mounted) return; if (status == CloudBackupStatus.success) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('資料還原成功！正在重新載入...'))); Future.delayed(const Duration(seconds: 1), () { if (mounted) { Navigator.of(context).pushAndRemoveUntil( MaterialPageRoute(builder: (context) => const AuthWrapper()), (Route<dynamic> route) => false, ); } }); } else { final message = switch (status) { CloudBackupStatus.noBackupFound => '找不到備份檔案。', CloudBackupStatus.error => '還原失敗。', _ => '發生未知錯誤。', }; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message))); } }

@@ -11,6 +11,7 @@ import 'package:taxibook/screens/onboarding_screen.dart';
 import 'package:taxibook/providers/auth_provider.dart';
 import 'package:taxibook/providers/theme_provider.dart';
 import 'package:taxibook/screens/add_edit_trip_screen.dart';
+import 'package:taxibook/services/log_service.dart';
 import 'package:taxibook/wrappers/permission_wrapper.dart'; // NEW IMPORT
 import 'screens/home_screen.dart';
 import 'screens/stats_screen.dart';
@@ -25,11 +26,17 @@ void main() async {
     await Firebase.initializeApp();
     await initializeDateFormatting('zh_TW', null);
 
+    final logService = LogService();
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      logService.logError(details.exception, details.stack, reason: 'FlutterError');
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    };
+    
     PlatformDispatcher.instance.onError = (error, stack) {
+      logService.logError(error, stack, reason: 'PlatformDispatcher');
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
@@ -45,6 +52,7 @@ void main() async {
       ),
     );
   }, (error, stack) {
+    LogService().logError(error, stack, reason: 'runZonedGuarded');
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
   });
 }
